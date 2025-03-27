@@ -33,6 +33,9 @@ sr = None
 async def load_models():
     global yolo_model, classifier, sr
     
+    # Explicitly set torch data type and precision
+    torch.set_default_dtype(torch.float32)
+    
     # Setup PyTorch for optimal performance
     torch.set_num_threads(4)
     if torch.cuda.is_available():
@@ -42,7 +45,6 @@ async def load_models():
     print("🔄 Loading YOLOv8 model...")
     yolo_model = YOLO("yolov8n.pt")
     yolo_model.to('cpu')
-    yolo_model.model.half()  # Use half precision
     print("✅ YOLO model loaded successfully!")
 
     # Load ResNet model for species classification
@@ -50,7 +52,6 @@ async def load_models():
     classifier = models.resnet18(weights='IMAGENET1K_V1')
     classifier.eval()
     classifier.to('cpu')
-    classifier.half()  # Use half precision
     print("✅ ResNet model loaded successfully!")
 
     # Load FSRCNN model for super-resolution
@@ -102,7 +103,7 @@ def resize_image(image, max_size=1024):
 
 def classify_species(image_crop):
     """
-    Classify species using ResNet with improved error handling
+    Classify species with explicit type conversions
     """
     try:
         with torch.no_grad():
@@ -110,7 +111,9 @@ def classify_species(image_crop):
             resized_crop = cv2.resize(image_crop, (224, 224))
             
             image_pil = Image.fromarray(cv2.cvtColor(resized_crop, cv2.COLOR_BGR2RGB))
-            input_tensor = transform(image_pil).unsqueeze(0).to('cpu').half()
+            
+            # Ensure float32 tensor conversion
+            input_tensor = transform(image_pil).unsqueeze(0).float().to('cpu')
             
             output = classifier(input_tensor)
             
